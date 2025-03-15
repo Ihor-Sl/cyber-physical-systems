@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Енерголічильники</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        h1, h2 {
+            color: #444;
+        }
+
+        form {
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+
+        input {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 16px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        button {
+            background: #007bff;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: center;
+        }
+
+        th {
+            background: #007bff;
+            color: #fff;
+        }
+
+        tr:hover {
+            background: #f1f1f1;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Керування енерголічильниками</h1>
+    <form id="addMeterForm">
+        <h2>Додати лічильник</h2>
+        <label for="meterName">Назва лічильника:</label>
+        <input type="text" id="meterName" name="name" required>
+        <button type="submit">Додати</button>
+    </form>
+    <form id="addReadingForm">
+        <h2>Додати показання</h2>
+        <label for="meterNameReading">Назва лічильника:</label>
+        <input type="text" id="meterNameReading" name="name" required>
+        <label for="dayReading">Денні показання:</label>
+        <input type="number" id="dayReading" name="dayReading" required>
+        <label for="nightReading">Нічні показання:</label>
+        <input type="number" id="nightReading" name="nightReading" required>
+        <button type="submit">Додати показання</button>
+    </form>
+    <h2>Список лічильників</h2>
+    <table id="metersTable">
+        <thead>
+        <tr>
+            <th rowspan="2">ID</th>
+            <th rowspan="2">Назва</th>
+            <th rowspan="2">Денні показання</th>
+            <th rowspan="2">Нічні показання</th>
+            <th rowspan="2">Дія</th>
+            <th colspan="4">Показання</th>
+        </tr>
+        <tr>
+            <th>Дата</th>
+            <th>Фактичне Споживання (день)</th>
+            <th>Фактичне Споживання (ніч)</th>
+            <th>Рахунок</th>
+        </tr>
+        </thead>
+        <tbody>
+        </tbody>
+    </table>
+</div>
+
+<script>
+    const API_BASE_URL = "http://localhost:8080/energy-meter";
+
+    async function fetchMeters() {
+        const response = await fetch(API_BASE_URL);
+        const meters = await response.json();
+        const tableBody = document.querySelector("#metersTable tbody");
+        tableBody.innerHTML = "";
+
+        for (const meter of meters) {
+            tableBody.innerHTML += `
+              <tr>
+                <td>${meter.id}</td>
+                <td>${meter.name}</td>
+                <td>${meter.currentDayReading}</td>
+                <td>${meter.currentNightReading}</td>
+                <td><button onclick="deleteMeter(${meter.id})">Видалити</button></td>
+                ${meter.readings.length > 0
+                ? `
+                      <td>${new Date(meter.readings[0].date).toLocaleString()}</td>
+                      <td>${meter.readings[0].dayReading}</td>
+                      <td>${meter.readings[0].nightReading}</td>
+                      <td>${meter.readings[0].bill}</td>
+                    `
+                : `
+                      <td colspan="4">Немає даних</td>
+                    `
+            }
+              </tr>
+              ${meter.readings.slice(1).map(
+                (reading) => `
+                <tr>
+                  <td colspan="5"></td>
+                  <td>${new Date(reading.date).toLocaleString()}</td>
+                  <td>${reading.dayReading}</td>
+                  <td>${reading.nightReading}</td>
+                  <td>${reading.bill}</td>
+                </tr>
+              `
+            ).join("")}
+            `;
+        }
+    }
+
+    document.getElementById("addMeterForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const name = document.getElementById("meterName").value;
+
+        const response = await fetch(API_BASE_URL, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({name}),
+        });
+
+        if (response.ok) {
+            await fetchMeters();
+            document.getElementById("addMeterForm").reset();
+        }
+    });
+
+    document.getElementById("addReadingForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const name = document.getElementById("meterNameReading").value;
+        const dayReading = parseFloat(document.getElementById("dayReading").value);
+        const nightReading = parseFloat(document.getElementById("nightReading").value);
+
+        const response = await fetch(`${API_BASE_URL}/${name}/reading`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({dayReading, nightReading}),
+        });
+
+        if (response.ok) {
+            document.getElementById("addReadingForm").reset();
+            await fetchMeters();
+        }
+    });
+
+    async function deleteMeter(id) {
+        const response = await fetch(`${API_BASE_URL}/${id}`, {
+            method: "DELETE",
+        });
+
+        if (response.ok) {
+            await fetchMeters();
+        }
+    }
+
+    window.onload = fetchMeters;
+</script>
+</body>
+</html>

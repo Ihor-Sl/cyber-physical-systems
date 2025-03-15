@@ -1,0 +1,17 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/meter_reading
+    username: user
+    password: password
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: true
+
+energy:
+  tariff:
+    day: 1
+    night: 0.5
+  additional:
+    day: 100
+    night: 50
